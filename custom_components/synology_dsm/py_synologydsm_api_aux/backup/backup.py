@@ -96,14 +96,12 @@ class SynoBackup:
             * Warning => NEVER_RUN, SUSPENDED, NO_SCHEDULE
             * Critical => Error
         """
-        if self.status(task_id) in [STATUS_RESTORE_ONLY, STATUS_SUSPENDED, STATUS_NEVER_RUN, STATUS_NO_SCHEDULE]:
-            health = HEALTH_WARN
+        if self.status(task_id) in [STATUS_OK, STATUS_RESUMING, STATUS_WAITING]:
+            return HEALTH_GOOD
         elif self.status(task_id) == STATUS_ERROR:
-            health = HEALTH_CRIT
-        else:
-            health = HEALTH_GOOD
-
-        return health
+            return HEALTH_CRIT
+        else:  # UNKNOWN, RESTORE_ONLY, SUSPENDED, NEVER_RUN, NO_SCHEDULE, DETECT
+            return HEALTH_WARN
 
     def status(self, task_id: int) -> str:
         """
@@ -118,6 +116,8 @@ class SynoBackup:
         if state != STATE_BACKUP:
             if state == STATE_RESTORE_ONLY:
                 return STATUS_RESTORE_ONLY
+            elif state == STATE_ERROR and raw_status == PROP_STATUS_DETECT_WAIT:
+                return STATUS_DETECT
             elif state in [STATE_ERROR, STATE_BROKEN, STATE_UNAUTH, STATE_END_SERVICE]:
                 return STATUS_ERROR
             else:
@@ -125,16 +125,16 @@ class SynoBackup:
 
         # Then check status value and previous result
         if raw_status == PROP_STATUS_NONE:
-            if previous_result == PROP_RESULT_DONE:
+            if previous_result == RESULT_DONE:
                 return STATUS_OK if next_backup_time else STATUS_NO_SCHEDULE
-            elif previous_result == PROP_RESULT_NONE:
+            elif previous_result == RESULT_NONE:
                 return STATUS_NEVER_RUN
-            elif previous_result == PROP_RESULT_SUSPEND:
+            elif previous_result == RESULT_SUSPEND:
                 return STATUS_SUSPENDED
             else:
                 return STATUS_ERROR
         elif raw_status in [PROP_STATUS_BACKUP, PROP_STATUS_DETECT, PROP_STATUS_VER_DEL, PROP_STATUS_PREP_VER_DEL]:
-            return STATUS_RESUMING if previous_result == PROP_RESULT_RESUME else STATUS_RUNNING
+            return STATUS_RESUMING if previous_result == RESULT_RESUME else STATUS_RUNNING
         elif raw_status == PROP_STATUS_WAITING:
             return STATUS_WAITING
         else:

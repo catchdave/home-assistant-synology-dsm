@@ -22,7 +22,7 @@ from homeassistant.const import (
     DATA_TERABYTES,
     PERCENTAGE,
     TEMP_CELSIUS,
-    DATA_BYTES, DATA_GIGABYTES,
+    DATA_GIGABYTES,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
@@ -465,9 +465,6 @@ class SynoDSMStorageSensor(SynologyDSMDeviceEntity, SynoDSMSensor):
             return round(attr / 1024.0**4, 2)
 
         return attr
-
-import logging
-LOGGER = logging.getLogger(__name__)
 
 class SynoDSMHyperBackupSensor(SynologyDSMBackupTaskEntity, SynoDSMSensor):
     """Representation a Synology HyperBackup sensor."""
