@@ -14,6 +14,7 @@ PROP_TASKID = 'task_id'
 PROP_ONLINE = 'is_online'
 PROP_USED_SIZE = 'used_size'
 PROP_LAST_PROGRESS = 'last_bkp_progress'
+PROP_PROGRESS = 'progress'
 
 # Hyper backup Task raw status values
 PROP_STATUS_NONE = 'none'

@@ -3,6 +3,7 @@ from typing import Any
 from typing import Dict
 import json
 from datetime import datetime
+from typing import Optional
 
 from synology_dsm.exceptions import SynologyDSMAPIErrorException
 
@@ -45,6 +46,7 @@ class SynoBackup:
             )["data"]
             task = task | backup_status
             task.pop("schedule", None)  # Keep response cleaner (schedule is a large array)
+            task.pop("source", None)  # Keep response cleaner (source can be a large array)
 
             target_data = self._get_target_data(task_id, task, prev_data, get_all_target_data)
             task = task | target_data
@@ -96,11 +98,12 @@ class SynoBackup:
             * Warning => NEVER_RUN, SUSPENDED, NO_SCHEDULE
             * Critical => Error
         """
-        if self.status(task_id) in [STATUS_OK, STATUS_RESUMING, STATUS_WAITING]:
+        ok_statuses = [STATUS_OK, STATUS_RESUMING, STATUS_WAITING, STATUS_RUNNING]
+        if self.has_schedule(task_id) and self.status(task_id) in ok_statuses:
             return HEALTH_GOOD
-        elif self.status(task_id) == STATUS_ERROR:
+        elif self.status(task_id) in [STATUS_RESTORE_ONLY, STATUS_ERROR]:
             return HEALTH_CRIT
-        else:  # UNKNOWN, RESTORE_ONLY, SUSPENDED, NEVER_RUN, NO_SCHEDULE, DETECT
+        else:  # STATUS_UNKNOWN, STATUS_SUSPENDED, STATUS_NEVER_RUN, STATUS_NO_SCHEDULE
             return HEALTH_WARN
 
     def status(self, task_id: int) -> str:
@@ -110,7 +113,6 @@ class SynoBackup:
         raw_status = self.raw_status(task_id)
         state = self.state(task_id)
         previous_result = self.raw_previous_result(task_id)
-        next_backup_time = self.next_backup_time(task_id)
 
         # Check state value first
         if state != STATE_BACKUP:
@@ -126,7 +128,7 @@ class SynoBackup:
         # Then check status value and previous result
         if raw_status == PROP_STATUS_NONE:
             if previous_result == RESULT_DONE:
-                return STATUS_OK if next_backup_time else STATUS_NO_SCHEDULE
+                return STATUS_OK if self.has_schedule(task_id) else STATUS_NO_SCHEDULE
             elif previous_result == RESULT_NONE:
                 return STATUS_NEVER_RUN
             elif previous_result == RESULT_SUSPEND:
@@ -134,7 +136,11 @@ class SynoBackup:
             else:
                 return STATUS_ERROR
         elif raw_status in [PROP_STATUS_BACKUP, PROP_STATUS_DETECT, PROP_STATUS_VER_DEL, PROP_STATUS_PREP_VER_DEL]:
-            return STATUS_RESUMING if previous_result == RESULT_RESUME else STATUS_RUNNING
+            if previous_result == RESULT_RESUME:
+                return STATUS_RESUMING
+            if not self.has_schedule(task_id):
+                return STATUS_RUNNING_NO_SCHEDULE
+            return STATUS_RUNNING
         elif raw_status == PROP_STATUS_WAITING:
             return STATUS_WAITING
         else:
@@ -143,6 +149,21 @@ class SynoBackup:
     def name(self, task_id: int) -> str:
         """Return name."""
         return self._data.get(task_id).get(PROP_NAME)
+
+    def has_schedule(self, task_id: int) -> bool:
+        """Does this backup task have a future schedule?"""
+        return bool(self.next_backup_time(task_id))
+
+    def is_backing_up(self, task_id: int) -> bool:
+        """Is this backup task currently running?"""
+        return bool(self.backup_progress(task_id) is not None)
+
+    def backup_progress(self, task_id: int) -> Optional[int]:
+        """What is backup percent? Returns None if not running."""
+        try:
+            return self._data.get(task_id).get(PROP_PROGRESS).get(PROP_PROGRESS)
+        except AttributeError:
+            return None
 
     def state(self, task_id: int) -> str:
         """Return state."""

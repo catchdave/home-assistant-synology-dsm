@@ -288,6 +288,20 @@ HYPER_BACKUP_SENSORS: tuple[SynologyDSMSensorEntityDescription, ...] = (
     ),
     SynologyDSMSensorEntityDescription(
         api_key=SynoBackup.API_KEY,
+        key="is_backing_up",
+        name="Currently Backing Up",
+        icon="mdi:backup-restore",
+    ),
+    SynologyDSMSensorEntityDescription(
+        api_key=SynoBackup.API_KEY,
+        key="used_size",
+        name="Backup Progress",
+        native_unit_of_measurement=PERCENTAGE,
+        icon="mdi:progress-upload",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SynologyDSMSensorEntityDescription(
+        api_key=SynoBackup.API_KEY,
         key="status",
         name="Status",
         icon="mdi:checkbox-marked-circle-outline",
@@ -334,6 +348,13 @@ HYPER_BACKUP_SENSORS: tuple[SynologyDSMSensorEntityDescription, ...] = (
         api_key=SynoBackup.API_KEY,
         key="raw_status",
         name="Status (raw)",
+        entity_registry_enabled_default=False,
+    ),
+    SynologyDSMSensorEntityDescription(
+        api_key=SynoBackup.API_KEY,
+        key="has_schedule",
+        name="Schedule Enabled",
+        icon="mdi:calendar-clock",
         entity_registry_enabled_default=False,
     ),
 )
